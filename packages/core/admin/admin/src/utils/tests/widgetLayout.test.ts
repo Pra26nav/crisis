@@ -10,8 +10,11 @@ import {
   isLastWidgetInRow,
   canResizeBetweenWidgets,
   createDefaultWidgetWidths,
+  sortWidgetsByHomepageLayout,
+  applyHomepageLayout,
 } from '../widgetLayout';
 
+import type { Homepage } from '../../../shared/contracts/homepage';
 import type { WidgetWithUID } from '../../core/apis/Widgets';
 
 // Mock widget data
@@ -199,3 +202,61 @@ describe('createDefaultWidgetWidths', () => {
     });
   });
 });
+
+describe('sortWidgetsByHomepageLayout', () => {
+  it('should sort widgets according to homepage layout order', () => {
+    const layout: Homepage.Layout = {
+      version: 1,
+      widgets: [
+        { uid: 'widget-3', width: 6 },
+        { uid: 'widget-1', width: 6 },
+        { uid: 'widget-2', width: 12 },
+      ],
+      updatedAt: '2026-10-26T00:00:00.000Z',
+    };
+
+    const result = sortWidgetsByHomepageLayout(
+      [mockWidgets[0], mockWidgets[1], mockWidgets[2]],
+      layout
+    );
+
+    expect(result.map((w) => w.uid)).toEqual(['widget-3', 'widget-1', 'widget-2']);
+  });
+
+  it('should place widgets not present in homepage layout at the end', () => {
+    const layout: Homepage.Layout = {
+      version: 1,
+      widgets: [{ uid: 'widget-2', width: 6 }],
+      updatedAt: '2026-10-26T00:00:00.000Z',
+    };
+
+    const result = sortWidgetsByHomepageLayout(
+      [mockWidgets[0], mockWidgets[1]],
+      layout
+    );
+
+    expect(result.map((w) => w.uid)).toEqual(['widget-2', 'widget-1']);
+  });
+});
+
+describe('applyHomepageLayout', () => {
+  it('should filter, sort widgets and return their widths', () => {
+    const layout: Homepage.Layout = {
+      version: 1,
+      widgets: [
+        { uid: 'widget-2', width: 4 },
+        { uid: 'widget-1', width: 8 },
+      ],
+      updatedAt: '2026-10-26T00:00:00.000Z',
+    };
+
+    const result = applyHomepageLayout(mockWidgets, layout);
+
+    expect(result.filteredWidgets.map((w) => w.uid)).toEqual(['widget-2', 'widget-1']);
+    expect(result.widths).toEqual({
+      'widget-2': 4,
+      'widget-1': 8,
+    });
+  });
+});
+

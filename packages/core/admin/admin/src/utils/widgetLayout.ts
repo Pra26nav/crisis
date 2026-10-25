@@ -328,7 +328,7 @@ export const sortWidgetsByHomepageLayout = (
     const aPriority = priorities.get(a.uid) ?? 0;
     const bPriority = priorities.get(b.uid) ?? 0;
 
-    return aPriority - bPriority;
+    return bPriority - aPriority;
   });
 };
 
