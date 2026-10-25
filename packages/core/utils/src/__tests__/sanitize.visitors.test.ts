@@ -3,6 +3,7 @@ import * as contentTypeUtils from '../content-types';
 import { sanitizers } from '../sanitize';
 import { traverseQueryFilters } from '../traverse';
 import type { Visitor } from '../traverse/factory';
+import type { Model } from '../types';
 import traverseEntity from '../traverse-entity';
 import { adminUserModel, articleModel, getModel } from './test-fixtures';
 
@@ -786,6 +787,49 @@ describe('Sanitize visitors util', () => {
       // The point of the memo: the scope was resolved once and reused, rather than
       // re-verified (and re-thrown) for all four entities.
       expect(verify).toHaveBeenCalledTimes(1);
+    });
+
+    test('removes bidirectional relation when target is unauthorized', async () => {
+      const verify = jest.fn().mockImplementation((_auth, { scope }) => {
+        if (scope === 'api::secret.secret.find') {
+          throw new Error('Forbidden');
+        }
+        return Promise.resolve(undefined);
+      });
+      global.strapi = { auth: { verify } } as unknown as typeof global.strapi;
+
+      const bidirectionalSchema = {
+        uid: 'api::article.article',
+        kind: 'collectionType',
+        info: { singularName: 'article', pluralName: 'articles' },
+        options: {},
+        attributes: {
+          title: { type: 'string' },
+          secretRelation: {
+            type: 'relation',
+            relation: 'manyToMany',
+            target: 'api::secret.secret',
+            inversedBy: 'articles',
+          },
+        },
+      } as unknown as Model;
+
+      const auth = { strategy: 'users-permissions', credentials: null };
+      const visitor = visitors.removeRestrictedRelations(auth);
+
+      const entity = {
+        title: 'Public article',
+        secretRelation: [{ name: 'Secret' }],
+      };
+
+      const result = await traverseEntity(
+        visitor,
+        { schema: bidirectionalSchema, getModel: getModelWithSecret },
+        entity
+      );
+
+      expect(result).not.toHaveProperty('secretRelation');
+      expect(result).toHaveProperty('title', 'Public article');
     });
   });
 
